@@ -75,6 +75,11 @@ def send_notif6(message):
   webhook = DiscordWebhook(url=webhook_url,
                   content='{} Test Mode Completed Successfully! Item has NOT been purchased\n{}'.format(myid, message))
   response = webhook.execute()
+  
+def send_notif7(message):
+  webhook = DiscordWebhook(url=webhook_url,
+                  content='{} Delivery NOT available for\n{}'.format(myid, message))
+  response = webhook.execute()
 
 def is_ping_in_cooldown(prev_ping):
   # global last_ping
@@ -141,13 +146,12 @@ def run_bot_instance(driver_instance, product, product_index):
   stock = False
   count = False
   purchased = False
+  checkout_page = False
+  basket_checkout = False
+  payment_page = False
   # store_collection = False
 
   while not purchased:
-
-    checkout_page = False
-    basket_checkout = False
-    payment_page = False
 
     if driver.current_url != item_url:
       driver.get(item_url)
@@ -208,11 +212,10 @@ def run_bot_instance(driver_instance, product, product_index):
       #Ensures delivery is available
       delivery_available = driver.find_element_by_xpath('//*[@id="root"]/div/div[2]/div[2]/div/div/div/div[1]/div[1]/div[2]/div/div[1]/div[3]/div[1]/div[1]/div[1]/div/div[1]').get_attribute('data-active') 
       if delivery_available == 'false':
-        WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div[2]/div/div/div/div[1]/div[1]/div[2]/div/div[1]/div[3]/div[2]'))).click()
-        time.sleep(1)
-        if delivery_available == 'false':
-          print('Delivery not available for {}'.format(item_name))
-          raise ValueError('Delivery Unavailable')
+        if config['discord']:
+            send_notif7(item_url)
+        print('Delivery not available for {}'.format(item_name))
+        raise ValueError('Delivery Unavailable')
 
       #Send notification if delivery is available
       if config['discord']:
@@ -227,7 +230,10 @@ def run_bot_instance(driver_instance, product, product_index):
       time.sleep(1)
 
       #click free
-      WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/div[2]/div/div/div[2]/div[2]/div[3]/div[2]/div[2]/div/div[3]/div[1]/button'))).click()
+      if payment_page == False:
+        WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/div[2]/div/div/div[2]/div[2]/div[3]/div[2]/div[2]/div/div[3]/div[1]/button'))).click()
+        
+      payment_page = True
       
       #Send notification before Delivery Page
       if config['discord']:
@@ -235,9 +241,9 @@ def run_bot_instance(driver_instance, product, product_index):
 
       #Card button
       WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/div[2]/div/div/div[4]/div[2]/div[2]/div[2]/div[2]/div[1]/button'))).click()
-      time.sleep(3)
+      time.sleep(5)
 
-      payment_page = True
+      
       
       #Send notification if payment page is reached
       if config['discord']:
