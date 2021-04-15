@@ -48,21 +48,32 @@ def create_driver():
 
 def send_notif(message):
   webhook = DiscordWebhook(url=webhook_url,
-                  content='{} Collection is available for\n{}'.format(myid, message))
+                  content='{} Add to basket has been clicked for\n{}'.format(myid, message))
   response = webhook.execute()
 
 def send_notif2(message):
   webhook = DiscordWebhook(url=webhook_url,
-                  content='{} Item has been purchased\n{}'.format(myid, message))
+                  content='{} Item has been purchased for\n{}'.format(myid, message))
   response = webhook.execute()
 
 def send_notif3(message):
   webhook = DiscordWebhook(url=webhook_url,
                   content='{} Delivery is available for\n{}'.format(myid, message))
   response = webhook.execute()
+  
 def send_notif4(message):
   webhook = DiscordWebhook(url=webhook_url,
-                  content='{} Payment page has been reached\n{}'.format(myid, message))
+                  content='{} Payment page has been reached for\n{}'.format(myid, message))
+  response = webhook.execute()
+  
+def send_notif5(message):
+  webhook = DiscordWebhook(url=webhook_url,
+                  content='{} Address Entered and Delivery Button clicked for\n{}'.format(myid, message))
+  response = webhook.execute()
+
+def send_notif6(message):
+  webhook = DiscordWebhook(url=webhook_url,
+                  content='{} Test Mode Completed Successfully! Item has NOT been purchased\n{}'.format(myid, message))
   response = webhook.execute()
 
 def is_ping_in_cooldown(prev_ping):
@@ -105,12 +116,34 @@ def run_bot_instance(driver_instance, product, product_index):
   except:
     pass
 
+  #Initial Sign in
+  try:
+    WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header"]/div/div[1]/div[3]/div[5]/a'))).click()
+
+    email = WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="input-sEmail"]')))
+    email.clear()
+    email.send_keys(secrets['email'])
+
+    password = WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="input-sPassword"]')))
+    password.clear()
+    password.send_keys(secrets['password'])
+
+    WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="content"]/div[2]/div/div/form/div[3]/button'))).click()
+
+    time.sleep(2)
+
+    if driver.current_url != item_url:
+      driver.get(item_url)
+
+  except:
+    pass
+
   stock = False
   count = False
   purchased = False
   # store_collection = False
 
-  while not stock and not purchased:
+  while not purchased:
 
     checkout_page = False
     basket_checkout = False
@@ -127,6 +160,12 @@ def run_bot_instance(driver_instance, product, product_index):
 
     try:
       add_to_basket = WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="product-actions"]/div[4]/div[1]/button'))).click()
+
+      if config['discord']:
+        cooldown = is_ping_in_cooldown(prev_ping=last_ping)
+        if not cooldown[0]:
+          send_notif(item_url)
+        last_ping = cooldown[1]
      
       if config['checkout_addon']:
         try:
@@ -149,7 +188,6 @@ def run_bot_instance(driver_instance, product, product_index):
 
       time.sleep(1)
 
-      #Reset basket to qty 1
       while True:
         try:
           WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-element="DropdownWrapper"]')))
@@ -188,41 +226,12 @@ def run_bot_instance(driver_instance, product, product_index):
       postcode.send_keys(secrets['postcode'])
       time.sleep(1)
 
-      # try:
-
-      #search postcode
-      WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="delivery_location"]/button[2]'))).click()
-      # WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[aria-label="Submit Search"]'))).click()
-      # time.sleep(2)
-
-      # except:
-      #   WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="collection_location"]/button[2]'))).click()
-      #   store_collection = True
-      #   if config['disable_store_collection']:
-      #     raise ValueError('Store Collection is disabled, purchase will not proceed')
-      
-      #click delivery
-      #WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/div/div/div[2]/div[2]/div[3]/div[2]/div[1]/ul/li[2]'))).click()
-      # time.sleep(3)
-
       #click free
       WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/div[2]/div/div/div[2]/div[2]/div[3]/div[2]/div[2]/div/div[3]/div[1]/button'))).click()
-
-      email = WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[autocomplete="email"]')))
-      email.clear()
-      email.send_keys(secrets['email'])
-
-      #continue after email
-      WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/div[2]/div/div/div[3]/div[2]/div[2]/div/div/form/button'))).click()
-      # time.sleep(4)
-      time.sleep(1)
-
-      password = WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="password"]')))
-      password.clear()
-      password.send_keys(secrets['password'])
-
-      #Sign in button
-      WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Sign in")]'))).click()
+      
+      #Send notification before Delivery Page
+      if config['discord']:
+        send_notif5(item_url)
 
       #Card button
       WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/div[2]/div/div/div[4]/div[2]/div[2]/div[2]/div[2]/div[1]/button'))).click()
@@ -265,10 +274,12 @@ def run_bot_instance(driver_instance, product, product_index):
         try:
           WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[id="submitButton"]')))
           print('Test Mode Completed Successfully! Item was not purchased. Returning to product page for {}'.format(item_name))
-          time.sleep(120)
+          if config['discord']:
+            send_notif6(item_url)
+          time.sleep(10)
         except:
           print('Test Mode Completed Unsuccessfully! Item was not purchased. Returning to product page for {}'.format(item_name))
-          time.sleep(120)
+          time.sleep(10)
       else:
         WebDriverWait(driver, driver_wait).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[id="submitButton"]'))).click()
         purchased = True
